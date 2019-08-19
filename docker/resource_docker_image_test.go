@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform/helper/resource"
@@ -37,6 +39,28 @@ func TestAccDockerImage_private(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: testAddDockerPrivateImageConfig,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestMatchResourceAttr("docker_image.foobar", "latest", contentDigestRegexp),
+				),
+			},
+		},
+	})
+}
+
+func TestAccDockerImage_build(t *testing.T) {
+	wd, _ := os.Getwd()
+
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:   true,
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccDockerImageDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: fmt.Sprintf(
+					testAddDockerBuildImageConfig,
+					strings.ReplaceAll(filepath.Clean(wd+"/../scripts/testing"), "\\", "\\\\"),
+				),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestMatchResourceAttr("docker_image.foobar", "latest", contentDigestRegexp),
 				),
@@ -188,6 +212,15 @@ resource "docker_image" "foo" {
 const testAddDockerPrivateImageConfig = `
 resource "docker_image" "foobar" {
 	name = "gcr.io:443/google_containers/pause:0.8.0"
+}
+`
+
+const testAddDockerBuildImageConfig = `
+resource "docker_image" "foobar" {
+	name = "terraform_provider_docker_test:0.0.0"
+	build {
+		context = "%s"
+	}
 }
 `
 
