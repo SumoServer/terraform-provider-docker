@@ -27,7 +27,7 @@ func Provider() terraform.ResourceProvider {
 			"host": {
 				Type:        schema.TypeString,
 				Required:    true,
-				DefaultFunc: schema.EnvDefaultFunc("DOCKER_HOST", "unix:///var/run/docker.sock"),
+				DefaultFunc: schema.EnvDefaultFunc("DOCKER_HOST", providerDefaultHost()),
 				Description: "The Docker daemon address",
 			},
 
@@ -114,6 +114,14 @@ func Provider() terraform.ResourceProvider {
 
 		ConfigureFunc: providerConfigure,
 	}
+}
+
+func providerDefaultHost() string {
+	if runtime.GOOS == "windows" {
+		return "npipe:////./pipe/docker_engine"
+	}
+
+	return "unix:///var/run/docker.sock"
 }
 
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
