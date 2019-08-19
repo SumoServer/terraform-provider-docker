@@ -3,6 +3,7 @@ package docker
 import (
 	"archive/tar"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -18,7 +19,6 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
-	"github.com/docker/docker/pkg/term"
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
@@ -350,8 +350,7 @@ func buildDockerImage(client *client.Client, tag string, buildOptions map[string
 	}
 	defer buildResponse.Body.Close()
 
-	termFd, isTerm := term.GetFdInfo(os.Stderr)
-	return jsonmessage.DisplayJSONMessagesStream(buildResponse.Body, os.Stderr, termFd, isTerm, nil)
+	return processStreamingOutput(buildResponse.Body)
 }
 
 func mapTypeMapValsToStringPtr(typeMap map[string]interface{}) map[string]*string {
@@ -360,4 +359,30 @@ func mapTypeMapValsToStringPtr(typeMap map[string]interface{}) map[string]*strin
 		*mapped[k] = v.(string)
 	}
 	return mapped
+}
+
+func processStreamingOutput(in io.Reader) error {
+	dec := json.NewDecoder(in)
+
+	for {
+		var jm jsonmessage.JSONMessage
+		if err := dec.Decode(&jm); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+
+		if jm.Error != nil {
+			return errors.New(jm.ErrorMessage)
+		} else if jm.ProgressMessage != "" {
+			log.Printf("[DEBUG] %v", jm.ProgressMessage)
+		} else if jm.Stream != "" {
+			log.Printf("[DEBUG] %v", jm.Stream)
+		} else {
+			log.Printf("[DEBUG] %v", jm.Status)
+		}
+	}
+
+	return nil
 }
