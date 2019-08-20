@@ -328,7 +328,13 @@ func buildContextTar(buildContext string) (string, error) {
 }
 
 func buildDockerImage(client *client.Client, tag string, buildOptions map[string]interface{}) error {
-	dockerContextTarPath, err := buildContextTar(buildOptions["context"].(string))
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	buildContext := filepath.Clean(filepath.Join(cwd, buildOptions["context"].(string)))
+	dockerContextTarPath, err := buildContextTar(buildContext)
 	defer os.Remove(dockerContextTarPath)
 
 	dockerBuildContext, err := os.Open(dockerContextTarPath)
