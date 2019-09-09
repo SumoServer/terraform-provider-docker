@@ -362,7 +362,8 @@ func buildDockerImage(client *client.Client, tag string, buildOptions map[string
 func mapTypeMapValsToStringPtr(typeMap map[string]interface{}) map[string]*string {
 	mapped := make(map[string]*string, len(typeMap))
 	for k, v := range typeMap {
-		*mapped[k] = v.(string)
+		val := v.(string)
+		mapped[k] = &val
 	}
 	return mapped
 }
